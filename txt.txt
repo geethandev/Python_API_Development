@@ -1,0 +1,186 @@
+import time
+from random import randrange
+
+import pyodbc
+from fastapi import Depends, FastAPI, HTTPException, Response, status
+from pydantic import BaseModel
+from sqlalchemy.orm import Session
+
+from . import models
+from .database import SessionLocal, engine
+from .models import Post
+
+app = FastAPI()
+
+
+def establish_connection():
+    # Set up the connection string
+    server = 'OBITO\SQLEXPRESS'
+    database = 'fastapi'
+
+    connection_string = f"DRIVER={{SQL Server}};SERVER={server};DATABASE={database};"
+
+    while True:
+        try:
+            # Establish a connection
+            conn = pyodbc.connect(connection_string)
+            print("//////////////////////////////////")
+            print("Connection established successfully.")
+            print("//////////////////////////////////")
+        
+            cursor = conn.cursor()
+            return conn, cursor
+            # You can now perform SQL operations using the 'cursor' object
+        
+        except pyodbc.Error as e:
+            print("//////////////////////////////////")
+            print("Error connecting to the database:", e)
+            print("//////////////////////////////////")
+            print()
+            time.sleep(3)
+
+# Call the function to establish the connection
+conn, cursor = establish_connection()
+
+
+''' BASE MODEL '''
+# Define a Pydantic model to validate the post data
+class Post(BaseModel):
+    title: str
+    content: str
+    published: bool
+
+
+''' CURD OPERATION STARTS '''
+@app.get("/posts")
+async def get_post():
+    # Endpoint to retrieve the list of posts
+    # Execute the SQL query to retrieve all posts from the database
+    cursor.execute('''SELECT * FROM dbo.post''')
+    
+    # Fetch all the posts as a list of dictionaries
+    posts = [dict(zip([column[0] for column in cursor.description], row)) for row in cursor.fetchall()]
+
+    return {"data": posts}
+
+
+@app.post("/posts")
+async def post_create(post: Post):
+    try:
+        # Endpoint to create a new post
+        post_dict = post.dict()
+        cursor.execute(''' INSERT INTO dbo.post(title,content,published)values(?,?,?) ''',
+                        post_dict['title'],
+                        post_dict['content'],
+                        post_dict['published'])
+        # Commit the transaction to save the changes in the database
+        conn.commit()
+        return {"message": "Post created successfully", "data": post_dict}
+    
+    except pyodbc.Error as e:
+        return {'error': str(e)}
+    
+    
+@app.get("/posts/latest")
+async def latest():
+    try:
+        
+        # Endpoint to get the latest post
+        cursor.execute('''SELECT TOP 2 * FROM dbo.post;  ''')
+        posts = [dict(zip([column[0] for column in cursor.description], row)) for row in cursor.fetchall()]
+
+        return {"Latest post": posts}
+    
+    except pyodbc.Error as e:
+        return {'error': str(e)}
+    
+
+@app.get("/posts/{id}")
+async def get_id(id: int):
+    try:
+        # Endpoint to get a post by its ID
+        # Fetch all the posts as a list of dictionaries
+        cursor.execute("SELECT * FROM dbo.post WHERE id = ?", (id,))
+        row = cursor.fetchone()
+        if row:
+            columns = [column[0] for column in cursor.description]
+            post = dict(zip(columns, row))
+            return post
+        
+        return {'message': 'ID Not Found'}
+    except pyodbc.Error as e:
+        return {'error': str(e)}
+    
+    
+@app.put("/posts/{id}")
+async def update_post(id: int, P: Post):
+    # Endpoint to update a post by its ID
+    try:
+        # Extract the updated values from the Post model
+        cursor.execute(
+            "UPDATE dbo.post SET title = ?, content = ?, published = ? WHERE id = ?",
+            (P.title, P.content, P.published, id)
+        )
+        cursor.commit()
+        
+        cursor.execute("SELECT * FROM dbo.post WHERE id = ?", (id,))
+        row = cursor.fetchone()
+
+        if row:
+            columns = [column[0] for column in cursor.description]
+            post = dict(zip(columns, row))
+            return post
+
+        return {"message": "Post updated successfully"}
+
+    except pyodbc.Error as e:
+        return {"error": str(e)}
+
+
+@app.delete("/posts/delete/{id}")
+async def delete_post(id: int):
+    try:
+        # Endpoint to delete a post by its ID
+        cursor.execute(''' DELETE FROM dbo.post WHERE id = ? ''',id)
+        cursor.commit()
+        return {"message": "Post deleted successfully"}
+    
+    except pyodbc.Error as e:
+        return {"error": str(e)}
+    
+    
+''' CURD OPERATION ENDS '''   
+
+
+
+
+@app.get("/register/", response_class=HTMLResponse)
+async def read_register_html(request: Request):
+    return templates.TemplateResponse("register.html", {"request": request})
+
+@app.post("/register/", status_code=status.HTTP_201_CREATED)
+async def register_user(user: schemas.UserCreate = Depends(Form), db: Session = Depends(get_db)):
+    # Check if the password and confirm_password match
+    if user.password != user.confirm_password:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Password and confirm_password do not match."
+        )
+
+    # Check if the email is already registered
+    existing_user = db.query(models.User).filter(models.User.Email == user.Email).first()
+    if existing_user:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Email already registered."
+        )
+
+    # Create a new user in the database
+    new_user = models.User(**user.dict())
+    db.add(new_user)
+    db.commit()
+    db.refresh(new_user)
+
+    return {"message": "User registered successfully."}
+    
+    
