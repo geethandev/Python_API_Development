@@ -1,5 +1,5 @@
 ![FastAPI Logo](logo.jpg)    
-# FastAPI API Development Course Overview
+# FastAPI API Development Overview
   
 Learn Python API development in one of the most comprehensive courses ever on the topic. This course guided me through building a full-fledged API in Python using FastAPI, a modern and fast web framework.
 
