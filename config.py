@@ -1,7 +1,6 @@
 from pydantic_settings import BaseSettings
 
-
-
+# Getting env from .env file 
 class Settings(BaseSettings):
     database_server: str
     database_name: str

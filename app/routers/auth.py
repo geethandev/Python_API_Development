@@ -1,13 +1,14 @@
 from datetime import datetime, timedelta
-
-from fastapi import APIRouter, Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
-from jose import JWTError, jwt
-from sqlalchemy.orm import Session
-
 from config import settings
 
-from .. import main, models, schemas, utils
+from fastapi import APIRouter, Depends, FastAPI, HTTPException, status
+from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+from jose import JWTError, jwt
+from passlib.context import CryptContext
+from pydantic import BaseModel
+from sqlalchemy.orm import Session
+
+from .. import models, schemas, utils,main
 from ..database import get_db
 
 router = APIRouter(
@@ -16,20 +17,22 @@ router = APIRouter(
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl='login')
 
-# to get a string like this run:
-# openssl rand -hex 32
+# Getting from Config file 
+SECRET_KEY = settings.secret_key
+ALGORITHM = settings.algorithm
+ACCESS_TOKEN_EXPIRE_MINUTES = settings.access_token_expire_minutes
 
 
 def Access_Token(data: dict):
-    expire = datetime.utcnow() + timedelta(minutes=settings.access_token_expire_minutes)
+    expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     to_encode = data.copy()
     to_encode["exp"] = expire  # Adding the expiration time to the dictionary
-    encoded_jwt = jwt.encode(to_encode, settings.secret_key, algorithm=settings.algorithm)
+    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
 
 def verify_Token(token: str, credentials_exception):
     try:
-        payload = jwt.decode(token, settings.secret_key, settings.algorithm)
+        payload = jwt.decode(token, SECRET_KEY, ALGORITHM)
         id: str = payload.get('user_id')
         
         if id is None:
