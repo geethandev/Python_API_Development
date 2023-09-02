@@ -1,0 +1,42 @@
+# Database Migrations Setup Guide
+
+This guide provides step-by-step instructions on how to set up Alembic for managing database migrations in a FastAPI project that uses SQLAlchemy and SQL Server as the database.
+
+## Prerequisites
+
+- Python (3.7+)
+- FastAPI
+- SQLAlchemy
+- Alembic
+- SQL Server
+
+## Installation
+
+1. **Install Alembic**:
+
+   ```bash
+   pip install alembic
+2. **Configure Alembic**:
+    ```bash
+    [alembic]
+    sqlalchemy.url = mssql+pyodbc:///?odbc_connect=DRIVER={ODBC Driver 17 for SQL Server};SERVER=your_server_name;DATABASE=your_database_name;Trusted_Connection=yes;
+3. **create initial migration**:    
+    ```bash
+    alembic revision --autogenerate -m "initial"
+4. **Apply Migrations**:
+
+    ```bash
+    alembic upgrade head
+## usages
+1. **Generate Migrations:**:
+    ```bash
+    alembic revision --autogenerate -m "description_of_change"
+2. **Apply Migrations**:
+
+    ```bash
+    alembic upgrade head
+
+You now have Alembic set up for managing database migrations in your FastAPI project. This allows you to make changes to your database schema while keeping your data intact.
+
+
+
